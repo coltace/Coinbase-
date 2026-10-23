@@ -1,0 +1,171 @@
+import re
+import uuid
+from decimal import Decimal, InvalidOperation
+
+from flask import Blueprint, current_app, jsonify, render_template, request, session
+
+from .extensions import db
+from .models import AuditLog, DistributionRecord, TransferIntent, User, create_user, verify_password
+from .security import audit, current_user, issue_csrf_token, require_auth, require_role
+
+bp = Blueprint("main", __name__)
+ADDRESS_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
+TX_HASH_RE = re.compile(r"^0x[a-fA-F0-9]{64}$")
+
+
+def json_error(message, status_code):
+    return jsonify({"error": message}), status_code
+
+
+def transfer_json(transfer):
+    return {
+        "id": transfer.id,
+        "userId": transfer.user_id,
+        "sender": transfer.sender,
+        "recipient": transfer.recipient,
+        "amountTest": transfer.amount_test,
+        "amountUsdt": transfer.amount_usdt,
+        "amountWei": transfer.amount_wei,
+        "status": transfer.status,
+        "txHash": transfer.tx_hash,
+        "blockNumber": transfer.block_number,
+        "emailStatus": transfer.email_status,
+        "createdAt": transfer.created_at.isoformat() if transfer.created_at else None,
+    }
+
+
+@bp.get("/")
+def index():
+    return render_template("index.html")
+
+
+@bp.get("/health")
+@bp.get("/healthz")
+def health_check():
+    return jsonify({"status": "ok"})
+
+
+@bp.get("/api/auth/csrf")
+def csrf_token():
+    return jsonify({"csrfToken": issue_csrf_token()})
+
+
+@bp.post("/api/auth/register")
+def register():
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+    password = str(data.get("password", ""))
+
+    if not email or not password:
+        return json_error("Email and password are required.", 400)
+
+    try:
+        user = create_user(email, password, role="user")
+    except ValueError as exc:
+        return json_error(str(exc), 400)
+
+    session.clear()
+    session["user_id"] = user.id
+    session["csrf_token"] = issue_csrf_token()
+    audit("user_registered", user_id=user.id, resource_type="user", resource_id=user.id)
+    return jsonify({"user": {"id": user.id, "email": user.email, "role": user.role}, "csrfToken": session["csrf_token"]}), 201
+
+
+@bp.post("/api/auth/login")
+def login():
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+    password = str(data.get("password", ""))
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not verify_password(user, password):
+        return json_error("Invalid email or password.", 401)
+
+    session.clear()
+    session["user_id"] = user.id
+    session["csrf_token"] = issue_csrf_token()
+    audit("user_logged_in", user_id=user.id, resource_type="user", resource_id=user.id)
+    return jsonify({"user": {"id": user.id, "email": user.email, "role": user.role}, "csrfToken": session["csrf_token"]})
+
+
+@bp.post("/api/transfers/prepare")
+@require_auth
+def prepare_transfer():
+    data = request.get_json(silent=True) or {}
+    sender = str(data.get("sender", "")).strip()
+    recipient = str(data.get("recipient", "")).strip()
+    amount = str(data.get("amount", "")).strip()
+
+    if not ADDRESS_RE.fullmatch(sender) or not ADDRESS_RE.fullmatch(recipient):
+        return json_error("Sender and recipient must be valid Ethereum addresses.", 400)
+
+    try:
+        amount_decimal = Decimal(amount)
+    except InvalidOperation:
+        return json_error("Invalid transfer amount.", 400)
+
+    if amount_decimal <= 0:
+        return json_error("Transfer amount must be greater than zero.", 400)
+
+    amount_wei = int((amount_decimal * Decimal("1000000000000000000")).to_integral_value())
+    transfer = TransferIntent(
+        id=uuid.uuid4().hex,
+        user_id=current_user().id,
+        sender=sender.lower(),
+        recipient=recipient.lower(),
+        amount_test=float(amount_decimal),
+        amount_usdt=0.0,
+        amount_wei=str(amount_wei),
+        status="pending",
+    )
+
+    db.session.add(transfer)
+    db.session.commit()
+    audit("transfer_intent_created", user_id=transfer.user_id, resource_type="transfer_intent", resource_id=transfer.id)
+    return jsonify({**transfer_json(transfer), "amountWei": transfer.amount_wei}), 201
+
+
+@bp.get("/api/admin/audit-logs")
+@require_role("admin")
+def admin_audit_logs():
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).all()
+    payload = [{
+        "id": entry.id,
+        "action": entry.action,
+        "userId": entry.user_id,
+        "resourceType": entry.resource_type,
+        "resourceId": entry.resource_id,
+        "createdAt": entry.created_at.isoformat() if entry.created_at else None,
+    } for entry in logs]
+    return jsonify({"logs": payload})
+
+
+@bp.post("/api/admin/distributions/prepare")
+@require_role("admin")
+def prepare_distribution():
+    data = request.get_json(silent=True) or {}
+    recipient = str(data.get("recipientAddress", "") or data.get("recipient", "")).strip()
+    amount = str(data.get("amount", "")).strip()
+
+    if not ADDRESS_RE.fullmatch(recipient):
+        return json_error("Recipient must be a valid Ethereum address.", 400)
+
+    try:
+        amount_value = Decimal(amount)
+    except InvalidOperation:
+        return json_error("Invalid distribution amount.", 400)
+
+    if amount_value <= 0:
+        return json_error("Distribution amount must be greater than zero.", 400)
+
+    record = DistributionRecord(
+        id=uuid.uuid4().hex,
+        user_id=current_user().id,
+        recipient=recipient.lower(),
+        amount=float(amount_value),
+        status="prepared",
+    )
+    db.session.add(record)
+    db.session.commit()
+    audit("token_distribution_intent_created", user_id=record.user_id, resource_type="distribution_record", resource_id=record.id, metadata={"recipient": recipient, "amount": str(amount_value)})
+    return jsonify({"id": record.id, "recipient": record.recipient, "amount": record.amount, "status": record.status}), 201
