@@ -1,0 +1,728 @@
+
+cat > app/templates/index.html <<'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="CoinPilot digital asset portfolio dashboard">
+  <title>CoinPilot | Digital Asset Dashboard</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+
+  <style>
+    :root {
+      --blue: #1652f0;
+      --blue-hover: #0d42d8;
+      --blue-light: #edf3ff;
+      --background: #f5f7fa;
+      --surface: #ffffff;
+      --text: #0a0b0d;
+      --muted: #5b616e;
+      --border: #e5e8ed;
+      --green: #098551;
+      --red: #cf3548;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   Roboto, Arial, sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    a { text-decoration: none; color: var(--blue); }
+
+    .topbar {
+      min-height: 76px;
+      padding: 15px 5%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 22px;
+      flex-wrap: wrap;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      color: var(--text);
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -1.2px;
+    }
+
+    .brand span { color: var(--blue); }
+
+    .navigation {
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      flex-wrap: wrap;
+    }
+
+    .navigation a {
+      color: #424750;
+      font-weight: 600;
+    }
+
+    .navigation a:hover { color: var(--blue); }
+
+    .region {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .container {
+      width: min(1180px, 92%);
+      margin: 38px auto 65px;
+    }
+
+    .welcome {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 26px;
+    }
+
+    h1 {
+      margin: 0 0 9px;
+      font-size: clamp(28px, 4vw, 38px);
+      letter-spacing: -1.5px;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: 19px;
+      letter-spacing: -.3px;
+    }
+
+    h3 { font-size: 15px; }
+    p { line-height: 1.6; }
+
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .notice {
+      margin-bottom: 25px;
+      padding: 15px 18px;
+      background: var(--blue-light);
+      border: 1px solid #d8e4ff;
+      border-radius: 12px;
+      color: #263d72;
+      line-height: 1.7;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 25px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 2px 8px rgba(20, 35, 70, .025);
+    }
+
+    .portfolio { grid-column: span 8; }
+    .wallet { grid-column: span 4; }
+    .markets { grid-column: span 8; }
+    .actions { grid-column: span 4; }
+    .history { grid-column: span 12; }
+
+    .section-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .portfolio-value {
+      margin: 14px 0 10px;
+      font-size: clamp(35px, 5vw, 48px);
+      font-weight: 750;
+      letter-spacing: -2px;
+      overflow-wrap: anywhere;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      background: #f0f3f7;
+      color: #48505e;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 12px 17px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #fff;
+      color: #252a34;
+      font-weight: 650;
+      transition: background .15s, border-color .15s;
+    }
+
+    .btn:hover { background: #f3f6fa; }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+
+    .btn-primary:hover {
+      background: var(--blue-hover);
+      border-color: var(--blue-hover);
+    }
+
+    .btn-soft {
+      background: var(--blue-light);
+      color: var(--blue);
+      border-color: transparent;
+    }
+
+    .btn-danger {
+      color: var(--red);
+      background: #fff;
+      border-color: #f0d7dc;
+    }
+
+    .btn-full { width: 100%; margin-top: 10px; }
+
+    .asset {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 17px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .asset:last-child { border-bottom: 0; }
+
+    .coin {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+    }
+
+    .coin-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--blue-light);
+      color: var(--blue);
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .coin-title { font-weight: 700; }
+    .coin-subtitle { margin-top: 5px; font-size: 12px; color: var(--muted); }
+    .right { text-align: right; overflow-wrap: anywhere; }
+    .green { color: var(--green); }
+    .red { color: var(--red); }
+
+    label {
+      display: block;
+      margin: 15px 0 7px;
+      color: #414752;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    input, select {
+      display: block;
+      width: 100%;
+      min-height: 45px;
+      padding: 12px;
+      background: #fff;
+      color: var(--text);
+      border: 1px solid #d8dde5;
+      border-radius: 9px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(22, 82, 240, .1);
+    }
+
+    .form-section {
+      display: none;
+      margin-top: 23px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    .status {
+      min-height: 22px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    .table-wrap { width: 100%; overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th, td {
+      padding: 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      background: #fafbfc;
+    }
+
+    td { font-size: 13px; }
+    tr:last-child td { border-bottom: 0; }
+
+    .reference-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 18px;
+    }
+
+    .reference-links a { font-weight: 600; font-size: 12px; }
+
+    footer {
+      padding: 27px 5%;
+      background: #fff;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.9;
+    }
+
+    @media (max-width: 850px) {
+      .portfolio, .wallet, .markets, .actions { grid-column: span 12; }
+      .topbar { padding: 17px 4%; }
+      .navigation { gap: 15px; }
+      .container { width: 94%; margin-top: 25px; }
+      .panel { padding: 19px; }
+    }
+
+    @media (max-width: 480px) {
+      .brand { font-size: 23px; }
+      .navigation { width: 100%; justify-content: space-between; }
+      .navigation a { font-size: 12px; }
+      .panel { padding: 16px; }
+      .button-row .btn { flex: 1 1 42%; }
+      .portfolio-value { letter-spacing: -1px; }
+    }
+  </style>
+</head>
+
+<body>
+<header class="topbar">
+  <a href="#" class="brand">Coin<span>Pilot</span></a>
+
+  <nav class="navigation" aria-label="Main navigation">
+    <a href="#portfolio">Home</a>
+    <a href="#markets">Markets</a>
+    <a href="#actions">My assets</a>
+    <a href="#history">Activity</a>
+  </nav>
+
+  <div class="region">🇺🇸 USA display · USD</div>
+</header>
+
+<main class="container">
+  <div class="welcome">
+    <div>
+      <p class="muted small">YOUR FINANCIAL OVERVIEW</p>
+      <h1>Welcome to CoinPilot</h1>
+      <p class="muted">Manage your digital asset portfolio in one place.</p>
+    </div>
+    <span class="pill"><span class="dot"></span> Dashboard</span>
+  </div>
+
+  <div class="notice">
+    <strong>Important information</strong><br>
+    This is an independent CoinPilot interface, not an official Coinbase product.
+    Demo credits are not real cryptocurrency. Market prices are informational.
+    Real transactions require secure wallet authorization and backend verification.
+    The USA label is a display preference, not a verified location or eligibility status.
+  </div>
+
+  <div class="grid">
+    <section class="panel portfolio" id="portfolio">
+      <p class="section-label">Portfolio balance</p>
+      <div class="portfolio-value" id="portfolioValue">$0.00</div>
+      <p class="muted small">Estimated total · USD display</p>
+
+      <div class="button-row">
+        <button class="btn btn-primary" id="depositTestBtn" type="button">Deposit</button>
+        <button class="btn btn-soft" id="depositUsdtBtn" type="button">USDT deposit</button>
+        <button class="btn" id="sendBtn" type="button">Send</button>
+        <button class="btn" id="withdrawTestBtn" type="button">Withdraw demo</button>
+        <button class="btn btn-danger" id="withdrawUsdtBtn" type="button">Withdraw USDT</button>
+      </div>
+
+      <p class="muted small">
+        Displayed balances are not proof of funds. Transaction status must
+        be verified independently before a transfer is considered complete.
+      </p>
+    </section>
+
+    <section class="panel wallet">
+      <h2>My wallet</h2>
+      <span class="pill" id="walletNetwork">Network: Not detected</span>
+
+      <p id="walletStatus" class="status muted" aria-live="polite">
+        Connect a supported browser wallet to continue.
+      </p>
+
+      <button class="btn btn-primary btn-full" id="connectButton" type="button">
+        Connect wallet
+      </button>
+
+      <div class="asset">
+        <div class="coin">
+          <div class="coin-icon">T</div>
+          <div>
+            <div class="coin-title">Demo credits</div>
+            <div class="coin-subtitle">TEST · Not real funds</div>
+          </div>
+        </div>
+        <div class="right">
+          <strong id="testBalance">0</strong>
+          <div class="coin-subtitle">TEST</div>
+        </div>
+      </div>
+
+      <div class="asset">
+        <div class="coin">
+          <div class="coin-icon">₮</div>
+          <div>
+            <div class="coin-title">Tether USD</div>
+            <div class="coin-subtitle">USDT token</div>
+          </div>
+        </div>
+        <div class="right">
+          <strong id="usdtBalance">0</strong>
+          <div class="coin-subtitle">USDT</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel markets" id="markets">
+      <h2>Market overview</h2>
+      <p class="muted small">Public cryptocurrency prices · USDT trading pairs</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Price</th>
+              <th>24h change</th>
+              <th>24h high</th>
+              <th>24h low</th>
+            </tr>
+          </thead>
+          <tbody id="marketRows">
+            <tr><td colspan="5" class="muted">Loading market data…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p id="marketStatus" class="status muted small" aria-live="polite">
+        Connecting to public market data…
+      </p>
+
+      <div class="reference-links">
+        <a href="https://developers.binance.com/en/docs/introduction"
+           target="_blank" rel="noopener noreferrer">Binance API documentation ↗</a>
+        <a href="https://docs.cdp.coinbase.com/"
+           target="_blank" rel="noopener noreferrer">Coinbase Developer Platform ↗</a>
+        <a href="https://docs.cdp.coinbase.com/coinbase-app/docs/welcome"
+           target="_blank" rel="noopener noreferrer">Coinbase App documentation ↗</a>
+      </div>
+    </section>
+
+    <section class="panel actions" id="actions">
+      <h2>Quick actions</h2>
+      <p class="muted small">Choose an action to open its form.</p>
+
+      <button class="btn btn-primary btn-full" id="openDepositForm" type="button">
+        Deposit demo credits
+      </button>
+      <button class="btn btn-full" id="openSendForm" type="button">
+        Send assets
+      </button>
+      <button class="btn btn-full" id="openWithdrawForm" type="button">
+        Withdrawal request
+      </button>
+
+      <div id="depositSection" class="form-section">
+        <h3>Demo credit deposit</h3>
+        <label for="depositTestAmount">Amount</label>
+        <input id="depositTestAmount" type="number" min="0" step="any" placeholder="0">
+        <button class="btn btn-primary btn-full" id="confirmDepositTest" type="button">
+          Confirm demo deposit
+        </button>
+      </div>
+
+      <div id="sendSection" class="form-section">
+        <h3>Send assets</h3>
+        <label for="recipient">Recipient wallet address</label>
+        <input id="recipient" type="text" placeholder="0x..." autocomplete="off">
+
+        <label for="amountTest">Demo credits amount</label>
+        <input id="amountTest" type="number" min="0" step="any" placeholder="0">
+
+        <label for="amountUsdt">USDT amount</label>
+        <input id="amountUsdt" type="number" min="0" step="any" placeholder="0">
+
+        <button class="btn btn-primary btn-full" id="confirmSend" type="button">
+          Continue
+        </button>
+      </div>
+
+      <div id="withdrawSection" class="form-section">
+        <h3>Withdrawal request</h3>
+        <label for="withdrawTestAmount">Demo credits amount</label>
+        <input id="withdrawTestAmount" type="number" min="0" step="any" placeholder="0">
+
+        <button class="btn btn-full" id="confirmWithdrawTest" type="button">
+          Submit demo request
+        </button>
+
+        <label for="withdrawUsdtAmount">USDT amount</label>
+        <input id="withdrawUsdtAmount" type="number" min="0" step="any" placeholder="0">
+
+        <button class="btn btn-full" id="confirmWithdrawUsdt" type="button">
+          Submit USDT request
+        </button>
+      </div>
+
+      <p id="transferStatus" class="status muted" aria-live="polite"></p>
+    </section>
+
+    <section class="panel history" id="history">
+      <h2>Transaction activity</h2>
+      <p class="muted small">
+        Records should be supplied by your backend and reflect verified transaction states.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Transaction</th>
+              <th>Asset</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Blockchain reference</th>
+            </tr>
+          </thead>
+          <tbody id="transactionRows">
+            <tr><td colspan="5" class="muted">No transaction records loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <strong>CoinPilot</strong> · Independent digital asset dashboard<br>
+  USA display preference · USD interface<br>
+  CoinPilot is not affiliated with or endorsed by Coinbase or Binance.
+</footer>
+
+<script>
+  const formIds = [
+    "depositSection",
+    "sendSection",
+    "withdrawSection"
+  ];
+
+  function showForm(id) {
+    formIds.forEach(formId => {
+      document.getElementById(formId).style.display =
+        formId === id ? "block" : "none";
+    });
+
+    document.getElementById(id).scrollIntoView({
+      behavior: "smooth",
+      block: "nearest"
+    });
+  }
+
+  document.getElementById("openDepositForm").onclick =
+    () => showForm("depositSection");
+
+  document.getElementById("openSendForm").onclick =
+    () => showForm("sendSection");
+
+  document.getElementById("openWithdrawForm").onclick =
+    () => showForm("withdrawSection");
+
+  document.getElementById("depositTestBtn").onclick =
+    () => showForm("depositSection");
+
+  document.getElementById("sendBtn").onclick =
+    () => showForm("sendSection");
+
+  document.getElementById("withdrawTestBtn").onclick =
+    () => showForm("withdrawSection");
+
+  document.getElementById("withdrawUsdtBtn").onclick =
+    () => showForm("withdrawSection");
+
+  document.getElementById("depositUsdtBtn").onclick = () => {
+    showForm("withdrawSection");
+    document.getElementById("transferStatus").textContent =
+      "A real USDT deposit requires a supported network, deposit address and on-chain verification.";
+  };
+
+  const assets = [
+    { symbol: "BTCUSDT", name: "Bitcoin", ticker: "BTC" },
+    { symbol: "ETHUSDT", name: "Ethereum", ticker: "ETH" },
+    { symbol: "BNBUSDT", name: "BNB", ticker: "BNB" },
+    { symbol: "SOLUSDT", name: "Solana", ticker: "SOL" },
+    { symbol: "XRPUSDT", name: "XRP", ticker: "XRP" }
+  ];
+
+  const marketRows = document.getElementById("marketRows");
+
+  function formatPrice(value) {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6
+    }).format(value);
+  }
+
+  async function loadMarkets() {
+    try {
+      const results = await Promise.all(
+        assets.map(async asset => {
+          const url =
+            "https://data-api.binance.vision/api/v3/ticker/24hr?symbol=" +
+            encodeURIComponent(asset.symbol);
+
+          const response = await fetch(url, { cache: "no-store" });
+          if (!response.ok) throw new Error("Market data unavailable");
+
+          return { asset, data: await response.json() };
+        })
+      );
+
+      marketRows.replaceChildren();
+
+      results.forEach(({ asset, data }) => {
+        const tr = document.createElement("tr");
+        const change = Number(data.priceChangePercent);
+
+        const values = [
+          asset.name + " (" + asset.ticker + ")",
+          "$" + formatPrice(Number(data.lastPrice)),
+          (change >= 0 ? "+" : "") + change.toFixed(2) + "%",
+          "$" + formatPrice(Number(data.highPrice)),
+          "$" + formatPrice(Number(data.lowPrice))
+        ];
+
+        values.forEach((value, index) => {
+          const td = document.createElement("td");
+          td.textContent = value;
+
+          if (index === 0) td.style.fontWeight = "700";
+          if (index === 2) td.className = change >= 0 ? "green" : "red";
+
+          tr.appendChild(td);
+        });
+
+        marketRows.appendChild(tr);
+      });
+
+      document.getElementById("marketStatus").textContent =
+        "Public market data loaded. Refreshes every 30 seconds.";
+    } catch (error) {
+      marketRows.replaceChildren();
+
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+
+      td.colSpan = 5;
+      td.className = "muted";
+      td.textContent = "Market data temporarily unavailable.";
+
+      tr.appendChild(td);
+      marketRows.appendChild(tr);
+
+      document.getElementById("marketStatus").textContent =
+        "Could not load live prices. Check your connection.";
+    }
+  }
+
+  loadMarkets();
+  setInterval(loadMarkets, 30000);
+</script>
+</body>
+</html>
+EOF
