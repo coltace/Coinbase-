@@ -1,10 +1,8 @@
-Flask==3.1.0
-Flask-SQLAlchemy==3.1.1
-Flask-Limiter==3.5.0
-python-dotenv==1.1.0
-requests==2.32.3
-gunicorn==23.0.0
-psycopg[binary]==3.2.1
-SQLAlchemy==2.0.36
-web3==7.10.0
-pytest==8.3.3
+from app import create_app
+
+app = create_app()
+
+if __name__ == "__main__":
+    import os
+
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
