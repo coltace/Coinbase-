@@ -1,0 +1,59 @@
+# Exported from Render on 2026-10-23T10:56:01Z
+version: "1"
+projects:
+- name: My project
+  environments:
+  - name: Production
+    services:
+    - type: web
+      name: Coinbase-
+      runtime: python
+      repo: https://github.com/coltace/Coinbase-
+      plan: free
+      envVars:
+      - key: RATELIMIT_STORAGE_URI
+        sync: false
+      - key: PTC_TRANSFERS_RESTRICTED
+        sync: false
+      - key: PTC_MAX_DISTRIBUTION
+        sync: false
+      - key: PTC_INITIAL_SUPPLY
+        sync: false
+      - key: PTC_DECIMALS
+        sync: false
+      - key: PTC_SYMBOL
+        sync: false
+      - key: PTC_CHAIN_ID
+        sync: false
+      - key: PTC_CONTRACT_ADDRESS
+        sync: false
+      - key: ADMIN_BOOTSTRAP_TOKEN
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: MIN_CONFIRMATIONS
+        sync: false
+      - key: MAX_TRANSFER_ETH
+        sync: false
+      - key: NOTIFY_EMAIL
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SEPOLIA_CHAIN_ID
+        sync: false
+      - key: SEPOLIA_RPC_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_LIFETIME_SECONDS
+        sync: false
+      - key: SESSION_COOKIE_SECURE
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      region: oregon
+      buildCommand: pip install -r requirements.txt
+      startCommand: gunicorn run:app
+      autoDeployTrigger: commit
