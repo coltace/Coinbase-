@@ -1,145 +1,29 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 
-/// @title CoinPilot PTC Test Token
-/// @notice Testnet-only ERC-20. If transfersEnabled is false, only the owner can
-/// transfer tokens. This is enforced by the contract and visible to wallets and explorers.
-contract PTCTestToken {
-    string public constant name = "CoinPilot Test Token";
-    string public constant symbol = "PTC";
-    uint8 public constant decimals = 18;
+[project]
+name = "coinpilot-sepolia-demo"
+version = "0.1.0"
+description = "A Sepolia testnet ETH transfer demo built with Flask"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "CoinPilot"}]
+dependencies = [
+  "Flask>=3.0,<4.0",
+  "Flask-SQLAlchemy>=3.1,<4.0",
+  "Flask-Limiter>=3.0,<4.0",
+  "python-dotenv>=1.0,<2.0",
+  "requests>=2.31,<3.0",
+  "gunicorn>=22.0,<24.0",
+  "psycopg[binary]>=3.2,<4.0",
+]
 
-    uint256 public constant INITIAL_SUPPLY =
-        88_988_998_098 * 10 ** 18;
+[project.optional-dependencies]
+test = ["pytest>=8.0,<9.0"]
 
-    address public owner;
-    bool public transfersEnabled;
-    uint256 public totalSupply;
+[tool.setuptools.packages.find]
+include = ["app*"]
 
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    event Transfer(
-        address indexed from,
-        address indexed to,
-        uint256 value
-    );
-
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 value
-    );
-
-    event TransferPolicyChanged(bool enabled);
-
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "PTC: owner only");
-        _;
-    }
-
-    constructor(address initialOwner, bool initiallyEnabled) {
-        require(initialOwner != address(0), "PTC: zero owner");
-
-        owner = initialOwner;
-        transfersEnabled = initiallyEnabled;
-        totalSupply = INITIAL_SUPPLY;
-
-        balanceOf[initialOwner] = INITIAL_SUPPLY;
-
-        emit Transfer(address(0), initialOwner, INITIAL_SUPPLY);
-    }
-
-    function transfer(
-        address to,
-        uint256 amount
-    ) external returns (bool) {
-        require(
-            transfersEnabled || msg.sender == owner,
-            "PTC: transfers disabled"
-        );
-
-        _transfer(msg.sender, to, amount);
-        return true;
-    }
-
-    function approve(
-        address spender,
-        uint256 amount
-    ) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-
-        emit Approval(msg.sender, spender, amount);
-        return true;
-    }
-
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool) {
-        require(
-            transfersEnabled,
-            "PTC: transfers disabled"
-        );
-
-        uint256 allowed = allowance[from][msg.sender];
-
-        require(
-            allowed >= amount,
-            "PTC: allowance"
-        );
-
-        allowance[from][msg.sender] = allowed - amount;
-
-        _transfer(from, to, amount);
-        return true;
-    }
-
-    function setTransfersEnabled(
-        bool enabled
-    ) external onlyOwner {
-        transfersEnabled = enabled;
-
-        emit TransferPolicyChanged(enabled);
-    }
-
-    function transferOwnership(
-        address newOwner
-    ) external onlyOwner {
-        require(
-            newOwner != address(0),
-            "PTC: zero owner"
-        );
-
-        emit OwnershipTransferred(owner, newOwner);
-
-        owner = newOwner;
-    }
-
-    function _transfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal {
-        require(
-            to != address(0),
-            "PTC: zero recipient"
-        );
-
-        require(
-            balanceOf[from] >= amount,
-            "PTC: balance"
-        );
-
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-
-        emit Transfer(from, to, amount);
-    }
-}
+[tool.setuptools.package-data]
+app = ["templates/*.html", "static/*.css", "static/*.js"]

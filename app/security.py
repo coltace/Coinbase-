@@ -2,8 +2,10 @@ import json
 import secrets
 import uuid
 from functools import wraps
+
 from flask import current_app, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
+
 from .extensions import db
 from .models import AuditLog, User
 
@@ -56,16 +58,17 @@ def require_role(*roles):
 
 def audit(action, user_id=None, resource_type=None, resource_id=None, metadata=None):
     entry = AuditLog(
-        id=None,
+        id=uuid.uuid4().hex,
         user_id=user_id,
         action=action,
         resource_type=resource_type,
-        resource_id=resource_id,
+        resource_id=str(resource_id) if resource_id is not None else None,
         ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
         metadata_json=json.dumps(metadata or {}, sort_keys=True),
     )
     db.session.add(entry)
     db.session.commit()
+    return entry
 
 
 def user_json(user):
@@ -88,4 +91,3 @@ def create_user(email, password, role="user"):
 
 def verify_password(user, password):
     return bool(user and check_password_hash(user.password_hash, password))
-  
