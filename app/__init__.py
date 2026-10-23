@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from flask import Flask
 
@@ -22,6 +23,7 @@ def create_app(test_config=None):
     with app.app_context():
         db.create_all()
         from .models import User
+
         admin = User.query.filter_by(id="ADMIN_DEFAULT").first()
         if not admin:
             admin = User(
@@ -34,7 +36,7 @@ def create_app(test_config=None):
                 is_active=True,
             )
             db.session.add(admin)
-            db.session.commit()
+        db.session.commit()
 
     return app
 
