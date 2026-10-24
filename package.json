@@ -1,0 +1,15 @@
+{
+  "name": "coinbase-sepolia-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Coinbase Sepolia testnet demo built with Flask",
+  "scripts": {
+    "dev": "python run.py",
+    "start": "gunicorn --bind 0.0.0.0:${PORT:-8000} wsgi:app",
+    "test": "pytest",
+    "lint": "python -m compileall app run.py wsgi.py"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
