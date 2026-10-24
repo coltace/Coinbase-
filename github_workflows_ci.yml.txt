@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      SECRET_KEY: test-secret
+      DATABASE_URL: sqlite:///test.db
+      APP_BASE_URL: http://localhost:5000
+      WEB3_RPC_URL: http://localhost:8545
+      CHAIN_ID: 11155111
+      DEPOSIT_CONFIRMATIONS: 2
+      MIN_CONFIRMATIONS: 1
+      FLASK_ENV: testing
+      SESSION_COOKIE_SECURE: "false"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Lint Python code
+        run: ruff check app tests
+
+      - name: Smoke-test app import
+        run: |
+          python - <<'PY'
+          from app import create_app
+          app = create_app({"TESTING": True})
+          assert app is not None
+          print("App import OK")
+          PY
+
+      - name: Run pytest
+        run: pytest --maxfail=1 --disable-warnings -q
+
+      - name: Health check via Flask test client
+        run: |
+          python - <<'PY'
+          from app import create_app
+          app = create_app({"TESTING": True})
+          client = app.test_client()
+          response = client.get("/healthz")
+          print("status:", response.status_code)
+          print("json:", response.get_json())
+          assert response.status_code == 200
+          assert response.get_json().get("status") == "ok"
+          PY
