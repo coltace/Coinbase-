@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1652f0"><title>CoinPilot | Sepolia Testnet</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+<header><a class="brand" href="/">Coin<span>Pilot</span></a><span class="tag">SEPOLIA TESTNET ONLY</span></header>
+<main>
+<section class="hero"><p class="eyebrow">A wallet-connected learning demo</p><h1>Explore crypto workflows.<br><span>Without real-money transfers.</span></h1><p>This starter uses Sepolia test ETH. Never enter a seed phrase or private key here.</p></section>
+<section class="card" id="authPanel">
+<div class="tabs"><button id="showLogin" class="active">Sign in</button><button id="showRegister">Create account</button></div>
+<form id="authForm"><label>Email<input id="email" type="email" autocomplete="email" required></label><label>Password<input id="password" type="password" minlength="12" autocomplete="current-password" required></label><button class="primary" type="submit" id="authSubmit">Sign in</button></form>
+<p id="authStatus" class="status" role="status"></p>
+</section>
+<section class="card" id="appPanel" hidden>
+<div class="row"><div><p class="eyebrow">ACCOUNT</p><h2 id="userStatus">Signed in</h2></div><button id="logoutButton" class="secondary">Sign out</button></div>
+<div class="notice">Only send Sepolia test ETH. A wallet transaction is irreversible even on testnet.</div>
+<button id="connectButton" class="secondary">Connect MetaMask</button><p id="walletStatus" class="status"></p>
+<form id="transferForm">
+<label>Recipient Ethereum address<input id="recipient" inputmode="text" placeholder="0x..." required pattern="0x[a-fA-F0-9]{40}"></label>
+<label>Amount in Sepolia ETH<input id="amount" type="number" min="0.000000000000000001" step="any" placeholder="0.001" required></label>
+<button class="primary" id="sendButton" type="submit">Review and send test ETH</button>
+</form>
+<p id="transferStatus" class="status" role="status"></p><a id="transactionLink" hidden target="_blank" rel="noopener noreferrer">View transaction on Sepolia Etherscan</a>
+<h3>Your transfer intents</h3><button id="refreshTransfers" class="secondary">Refresh transfers</button><pre id="transferList"></pre>
+<div id="adminPanel" hidden><h3>Admin audit log</h3><button id="auditButton" class="secondary">Load audit log</button><pre id="auditOutput"></pre></div>
+</section>
+<p class="footnote">Independent demonstration project. Not affiliated with Coinbase. No real USDT, fiat payments, deposits, withdrawals, or exchange custody are implemented.</p>
+</main>
+</body></html>
